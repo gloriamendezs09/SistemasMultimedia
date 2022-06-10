@@ -29,6 +29,7 @@ import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioFileFormat;
@@ -38,6 +39,7 @@ import javax.sound.sampled.LineListener;
 import javax.swing.Icon;
 import javax.swing.JColorChooser;
 import javax.swing.JFileChooser;
+import javax.swing.JInternalFrame;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -47,6 +49,7 @@ import sm.gms.eventos.VentanaInternaAdapter;
 import sm.gms.eventos.VentanaInternaEvent;
 import sm.gms.figuras.Figura;
 import sm.gms.imagen.BordeOp;
+import sm.gms.imagen.NegativoOp;
 import sm.gms.imagen.PosterizarOp;
 import sm.gms.imagen.RojoOp;
 import sm.image.EqualizationOp;
@@ -57,6 +60,8 @@ import sm.image.TintOp;
 import sm.image.color.YCbCrColorSpace;
 import sm.sound.SMClipPlayer;
 import sm.sound.SMSoundRecorder;
+import uk.co.caprica.vlcj.player.MediaPlayer;
+import uk.co.caprica.vlcj.player.MediaPlayerEventAdapter;
 
 /**
  *
@@ -65,7 +70,7 @@ import sm.sound.SMSoundRecorder;
 public class VentanaPrincipal extends javax.swing.JFrame {
 
     // Variable que almacena la ventana interna activa en cada momento
-    private VentanaInterna activa = null;
+    private JInternalFrame activa = null;
     // Variable utilizada para abrir y guardar los lienzos
     private JFileChooser dlg = new JFileChooser();
     //
@@ -74,10 +79,6 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     private int a = 0;
     //
     private int b = 0;
-    //
-    private miManejadorVentanaInterna manejadorVentanaInterna = new miManejadorVentanaInterna();
-    //
-    private miManejadorAudio manejadorAudio = new miManejadorAudio();
     //
     private SMClipPlayer player = null;
     //
@@ -100,37 +101,8 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      * activa de la clase
      */
     private boolean ventanaActiva() {
-        activa = (VentanaInterna) this.escritorio.getSelectedFrame();
+        activa = escritorio.getSelectedFrame();
         return (activa != null);
-    }
-
-    private void comprobarSiExiste(File fichero) {
-        Boolean existe = false;
-        int i = 0;
-        int elementos = this.listaAudios.getItemCount();
-        if (elementos > 0) {
-            while (i < elementos && !existe) {
-                if (this.listaAudios.getItemAt(i).equals(fichero)) {
-                    existe = true;
-                }
-                i++;
-            }
-        }
-        int valor = -1;
-        if (existe)
-            valor = JOptionPane.showConfirmDialog(this, "El archivo seleccionado ya está en la lista de reproducción.\n ¿Desea sobreescribirlo?", "Sobreescribir archivo", JOptionPane.YES_NO_OPTION);
-        if (valor == 0) {
-            this.listaAudios.removeItemAt(i-1);
-            this.listaAudios.addItem(fichero);
-            this.listaAudios.setSelectedItem(fichero);
-            JOptionPane.showMessageDialog(this, "Archivo sobreescrito correctamente.");
-        } else if (valor == 1)
-            JOptionPane.showMessageDialog(this, "El archivo no se ha añadido.");
-        else if (!existe){
-            this.listaAudios.addItem(fichero);
-            this.listaAudios.setSelectedItem(fichero);
-            JOptionPane.showMessageDialog(this, "Archivo añadido a la lista.");
-        }
     }
 
     /*
@@ -141,22 +113,23 @@ public class VentanaPrincipal extends javax.swing.JFrame {
 
         @Override
         public void ventanaInternaChange(VentanaInternaEvent evt) {
-            if (ventanaActiva()){
-                volcado.setSelected(activa.getLienzo().isVolcado());
-                relleno.setSelected(activa.getLienzo().isRelleno());
-                transparencia.setSelected(activa.getLienzo().isTransparencia());
-                alisar.setSelected(activa.getLienzo().isAlisar());
-                spinnerGrosor.setValue((Object) activa.getLienzo().getGrosor());
-                volcado.setSelected(activa.getLienzo().isVolcado());
-                spinnerValorA.setEnabled(volcado.isSelected());
-                spinnerValorA.setEnabled(volcado.isSelected());
-                tintado.setSelected(activa.getLienzo().isTintado());
+            if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+                VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+                volcado.setSelected(ventana.getLienzo().isVolcado());
+                relleno.setSelected(ventana.getLienzo().isRelleno());
+                transparencia.setSelected(ventana.getLienzo().isTransparencia());
+                alisar.setSelected(ventana.getLienzo().isAlisar());
+                spinnerGrosor.setValue((Object) ventana.getLienzo().getGrosor());
+                volcado.setSelected(ventana.getLienzo().isVolcado());
+                spinnerValorA.setEnabled(funcionTrapezoidal.isSelected());
+                spinnerValorA.setEnabled(funcionTrapezoidal.isSelected());
+                tintado.setSelected(ventana.getLienzo().isTintado());
                 sliderTintado.setEnabled(tintado.isSelected());
-                filtroRojo.setSelected(activa.getLienzo().isFiltroRojo());
+                filtroRojo.setSelected(ventana.getLienzo().isFiltroRojo());
                 sliderFiltroRojo.setEnabled(filtroRojo.isSelected());
                 listaFiguras.removeAllItems();
-                for (Figura s: activa.getLienzo().getVShape())
-                    listaFiguras.addItem(s.getFigura());
+                for (Figura s: ventana.getLienzo().getVShape())
+                    listaFiguras.addItem(s);
             }
         }
 
@@ -172,8 +145,8 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         @Override
         public void mouseMoved(MouseEvent e){
             Point2D raton = new Point2D.Double(e.getX(), e.getY());
-            this.setRaton(raton);
-            this.setColor(raton);
+            setRaton(raton);
+            setColor(raton);
         }
 
         public void setRaton(Point2D raton){
@@ -181,8 +154,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         }
 
         public void setColor (Point2D raton){
-            if (raton.getX() < activa.getLienzo().getImagen().getWidth() && raton.getY() < activa.getLienzo().getImagen().getHeight())
-                valorPixel.setText("Valor: " + activa.getLienzo().getImagen().getRGB((int)raton.getX(), (int)raton.getY()));
+            if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+                VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+                if (raton.getX() < ventana.getLienzo().getImagen().getWidth() && raton.getY() < ventana.getLienzo().getImagen().getHeight())
+                    valorPixel.setText("Valor: " + ventana.getLienzo().getImagen().getRGB((int)raton.getX(), (int)raton.getY()));
+            }
         }
     }
 
@@ -222,6 +198,29 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         }
     }
 
+        /*
+     * Manejador de la clase ventanaInterna que actualiza los botones de la
+     * Ventana Principal en función de la Ventana Interna que se seleccione
+     */
+    private class miManejadorVideo extends MediaPlayerEventAdapter {
+
+        @Override
+        public void playing(MediaPlayer mediaPlayer){
+            inicioVideo.setEnabled(false);
+            finVideo.setEnabled(true);
+        }
+        
+        @Override
+        public void paused(MediaPlayer mediaPlayer){
+            inicioVideo.setEnabled(true);
+            finVideo.setEnabled(false);
+        }
+        
+        public void finished(MediaPlayer mediaPlayer){
+            paused(mediaPlayer);
+        }
+    }
+    
     /**
      * Creates new form ventanaPrincipal
      */
@@ -270,6 +269,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         duracionAudio = new javax.swing.JLabel();
         listaAudios = new javax.swing.JComboBox<>();
         grabar = new javax.swing.JToggleButton();
+        jSeparator6 = new javax.swing.JSeparator();
+        inicioVideo = new javax.swing.JButton();
+        finVideo = new javax.swing.JButton();
+        camaraWeb = new javax.swing.JButton();
+        capturar = new javax.swing.JButton();
         ventanaMedio = new javax.swing.JPanel();
         escritorio = new javax.swing.JDesktopPane();
         jPanel1 = new javax.swing.JPanel();
@@ -288,7 +292,9 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         contraste = new javax.swing.JButton();
         iluminar = new javax.swing.JButton();
         oscurecer = new javax.swing.JButton();
-        funcionCuadratica = new javax.swing.JButton();
+        panelProcesamientoFiltros6 = new javax.swing.JPanel();
+        funcionCuadratica = new javax.swing.JToggleButton();
+        sliderFuncionCuadratica = new javax.swing.JSlider();
         funcionTrapezoidal = new javax.swing.JToggleButton();
         spinnerValorA = new javax.swing.JSpinner();
         spinnerValorB = new javax.swing.JSpinner();
@@ -303,17 +309,20 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         bandas = new javax.swing.JButton();
         cambioEspacio = new javax.swing.JComboBox<>();
         panelProcesamientoFiltros2 = new javax.swing.JPanel();
-        combinar = new javax.swing.JButton();
         panelProcesamientoFiltros3 = new javax.swing.JPanel();
         tintado = new javax.swing.JToggleButton();
         sliderTintado = new javax.swing.JSlider();
-        sepia = new javax.swing.JButton();
-        ecualizacion = new javax.swing.JButton();
         panelProcesamientoFiltros4 = new javax.swing.JPanel();
         filtroRojo = new javax.swing.JToggleButton();
         sliderFiltroRojo = new javax.swing.JSlider();
+        panelProcesamientoFiltros5 = new javax.swing.JPanel();
+        pintarBordes = new javax.swing.JToggleButton();
+        sliderBordes = new javax.swing.JSlider();
         sliderPosterizado = new javax.swing.JSlider();
-        pintarBordes = new javax.swing.JButton();
+        combinar = new javax.swing.JButton();
+        sepia = new javax.swing.JButton();
+        ecualizacion = new javax.swing.JButton();
+        negativo = new javax.swing.JButton();
         menuOpciones = new javax.swing.JMenuBar();
         archivo = new javax.swing.JMenu();
         archivo_nuevo = new javax.swing.JMenuItem();
@@ -561,7 +570,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         });
         panelHerramientas.add(alisar);
 
-        listaFiguras.setModel(new javax.swing.DefaultComboBoxModel<>(new Shape[] {}));
+        listaFiguras.setModel(new javax.swing.DefaultComboBoxModel<>(new Figura[] {}));
         listaFiguras.setToolTipText("Figuras");
         listaFiguras.setMaximumSize(new java.awt.Dimension(300, 30));
         listaFiguras.setMinimumSize(new java.awt.Dimension(300, 30));
@@ -580,7 +589,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         panelHerramientas.add(jSeparator5);
 
         inicioYPausa.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/play24x24.png"))); // NOI18N
-        inicioYPausa.setToolTipText("Reproducir/Pausar");
+        inicioYPausa.setToolTipText("Reproducir/Pausar audio");
         inicioYPausa.setMaximumSize(new java.awt.Dimension(30, 30));
         inicioYPausa.setMinimumSize(new java.awt.Dimension(30, 30));
         inicioYPausa.setPreferredSize(new java.awt.Dimension(30, 30));
@@ -592,7 +601,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         panelHerramientas.add(inicioYPausa);
 
         parar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/stop24x24.png"))); // NOI18N
-        parar.setToolTipText("Parar");
+        parar.setToolTipText("Parar video");
         parar.setMaximumSize(new java.awt.Dimension(30, 30));
         parar.setMinimumSize(new java.awt.Dimension(30, 30));
         parar.setPreferredSize(new java.awt.Dimension(30, 30));
@@ -631,22 +640,71 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         });
         panelHerramientas.add(grabar);
 
+        jSeparator6.setOrientation(javax.swing.SwingConstants.VERTICAL);
+        jSeparator6.setMaximumSize(new java.awt.Dimension(20, 30));
+        jSeparator6.setMinimumSize(new java.awt.Dimension(20, 30));
+        jSeparator6.setPreferredSize(new java.awt.Dimension(20, 30));
+        panelHerramientas.add(jSeparator6);
+
+        inicioVideo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/play24x24.png"))); // NOI18N
+        inicioVideo.setToolTipText("Reproducir video");
+        inicioVideo.setMaximumSize(new java.awt.Dimension(30, 30));
+        inicioVideo.setMinimumSize(new java.awt.Dimension(30, 30));
+        inicioVideo.setPreferredSize(new java.awt.Dimension(30, 30));
+        inicioVideo.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                inicioVideoActionPerformed(evt);
+            }
+        });
+        panelHerramientas.add(inicioVideo);
+
+        finVideo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/stop24x24.png"))); // NOI18N
+        finVideo.setToolTipText("Parar video");
+        finVideo.setMaximumSize(new java.awt.Dimension(30, 30));
+        finVideo.setMinimumSize(new java.awt.Dimension(30, 30));
+        finVideo.setPreferredSize(new java.awt.Dimension(30, 30));
+        finVideo.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                finVideoActionPerformed(evt);
+            }
+        });
+        panelHerramientas.add(finVideo);
+
+        camaraWeb.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/webcam.png"))); // NOI18N
+        camaraWeb.setToolTipText("Iniciar webcam");
+        camaraWeb.setMaximumSize(new java.awt.Dimension(30, 30));
+        camaraWeb.setMinimumSize(new java.awt.Dimension(30, 30));
+        camaraWeb.setPreferredSize(new java.awt.Dimension(30, 30));
+        camaraWeb.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                camaraWebActionPerformed(evt);
+            }
+        });
+        panelHerramientas.add(camaraWeb);
+
+        capturar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/captura.png"))); // NOI18N
+        capturar.setToolTipText("Hacer captura");
+        capturar.setMaximumSize(new java.awt.Dimension(30, 30));
+        capturar.setMinimumSize(new java.awt.Dimension(30, 30));
+        capturar.setPreferredSize(new java.awt.Dimension(30, 30));
+        capturar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                capturarActionPerformed(evt);
+            }
+        });
+        panelHerramientas.add(capturar);
+
         getContentPane().add(panelHerramientas, java.awt.BorderLayout.PAGE_START);
 
         ventanaMedio.setLayout(new java.awt.BorderLayout());
 
         escritorio.setMinimumSize(new java.awt.Dimension(700, 500));
-        escritorio.addComponentListener(new java.awt.event.ComponentAdapter() {
-            public void componentMoved(java.awt.event.ComponentEvent evt) {
-                escritorioComponentMoved(evt);
-            }
-        });
 
         javax.swing.GroupLayout escritorioLayout = new javax.swing.GroupLayout(escritorio);
         escritorio.setLayout(escritorioLayout);
         escritorioLayout.setHorizontalGroup(
             escritorioLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 1752, Short.MAX_VALUE)
+            .addGap(0, 2058, Short.MAX_VALUE)
         );
         escritorioLayout.setVerticalGroup(
             escritorioLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -681,8 +739,8 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         jPanel1.add(panelBarraEstado, java.awt.BorderLayout.PAGE_END);
 
         panelProcesamiento.setMaximumSize(new java.awt.Dimension(2000, 100));
-        panelProcesamiento.setMinimumSize(new java.awt.Dimension(887, 100));
-        panelProcesamiento.setPreferredSize(new java.awt.Dimension(887, 100));
+        panelProcesamiento.setMinimumSize(new java.awt.Dimension(987, 100));
+        panelProcesamiento.setPreferredSize(new java.awt.Dimension(987, 100));
         panelProcesamiento.setLayout(new javax.swing.BoxLayout(panelProcesamiento, javax.swing.BoxLayout.LINE_AXIS));
 
         panelProcesamientoBrilloyContraste.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED), "Brillo y contraste", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Siemens Sans SC", 1, 14))); // NOI18N
@@ -790,9 +848,9 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         panelProcesamiento.add(panelProcesamientoFiltros);
 
         panelProcesamientoTransformaciones.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED), "Transformaciones", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Siemens Sans SC", 1, 14))); // NOI18N
-        panelProcesamientoTransformaciones.setMaximumSize(new java.awt.Dimension(327, 90));
-        panelProcesamientoTransformaciones.setMinimumSize(new java.awt.Dimension(327, 90));
-        panelProcesamientoTransformaciones.setPreferredSize(new java.awt.Dimension(327, 90));
+        panelProcesamientoTransformaciones.setMaximumSize(new java.awt.Dimension(427, 90));
+        panelProcesamientoTransformaciones.setMinimumSize(new java.awt.Dimension(427, 90));
+        panelProcesamientoTransformaciones.setPreferredSize(new java.awt.Dimension(427, 90));
         panelProcesamientoTransformaciones.setLayout(new javax.swing.BoxLayout(panelProcesamientoTransformaciones, javax.swing.BoxLayout.LINE_AXIS));
 
         contraste.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/contraste.png"))); // NOI18N
@@ -831,8 +889,14 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         });
         panelProcesamientoTransformaciones.add(oscurecer);
 
+        panelProcesamientoFiltros6.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
+        panelProcesamientoFiltros6.setMaximumSize(new java.awt.Dimension(143, 60));
+        panelProcesamientoFiltros6.setMinimumSize(new java.awt.Dimension(143, 60));
+        panelProcesamientoFiltros6.setPreferredSize(new java.awt.Dimension(143, 60));
+        panelProcesamientoFiltros6.setLayout(new javax.swing.BoxLayout(panelProcesamientoFiltros6, javax.swing.BoxLayout.LINE_AXIS));
+
         funcionCuadratica.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/cuadratica.png"))); // NOI18N
-        funcionCuadratica.setToolTipText("Función cuadrática");
+        funcionCuadratica.setToolTipText("Activar función cuadrática");
         funcionCuadratica.setMaximumSize(new java.awt.Dimension(40, 30));
         funcionCuadratica.setMinimumSize(new java.awt.Dimension(40, 30));
         funcionCuadratica.setPreferredSize(new java.awt.Dimension(40, 30));
@@ -841,7 +905,34 @@ public class VentanaPrincipal extends javax.swing.JFrame {
                 funcionCuadraticaActionPerformed(evt);
             }
         });
-        panelProcesamientoTransformaciones.add(funcionCuadratica);
+        panelProcesamientoFiltros6.add(funcionCuadratica);
+
+        sliderFuncionCuadratica.setMajorTickSpacing(127);
+        sliderFuncionCuadratica.setMaximum(255);
+        sliderFuncionCuadratica.setPaintLabels(true);
+        sliderFuncionCuadratica.setPaintTicks(true);
+        sliderFuncionCuadratica.setToolTipText("Valor del parámetro de la función cuadrática");
+        sliderFuncionCuadratica.setValue(0);
+        sliderFuncionCuadratica.setEnabled(false);
+        sliderFuncionCuadratica.setMaximumSize(new java.awt.Dimension(90, 46));
+        sliderFuncionCuadratica.setMinimumSize(new java.awt.Dimension(90, 46));
+        sliderFuncionCuadratica.setPreferredSize(new java.awt.Dimension(90, 46));
+        sliderFuncionCuadratica.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                sliderFuncionCuadraticaStateChanged(evt);
+            }
+        });
+        sliderFuncionCuadratica.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                sliderFuncionCuadraticaFocusGained(evt);
+            }
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                sliderFuncionCuadraticaFocusLost(evt);
+            }
+        });
+        panelProcesamientoFiltros6.add(sliderFuncionCuadratica);
+
+        panelProcesamientoTransformaciones.add(panelProcesamientoFiltros6);
 
         funcionTrapezoidal.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/función trapezoidal.png"))); // NOI18N
         funcionTrapezoidal.setToolTipText("Función trapezoidal");
@@ -1009,24 +1100,12 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         panelProcesamiento.add(panelProcesamientoFiltros1);
 
         panelProcesamientoFiltros2.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED), " Operaciones", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Siemens Sans SC", 1, 14))); // NOI18N
-        panelProcesamientoFiltros2.setMaximumSize(new java.awt.Dimension(552, 110));
-        panelProcesamientoFiltros2.setMinimumSize(new java.awt.Dimension(552, 110));
+        panelProcesamientoFiltros2.setMaximumSize(new java.awt.Dimension(792, 110));
+        panelProcesamientoFiltros2.setMinimumSize(new java.awt.Dimension(792, 110));
         panelProcesamientoFiltros2.setName(""); // NOI18N
-        panelProcesamientoFiltros2.setPreferredSize(new java.awt.Dimension(552, 110));
+        panelProcesamientoFiltros2.setPreferredSize(new java.awt.Dimension(792, 110));
         panelProcesamientoFiltros2.setRequestFocusEnabled(false);
         panelProcesamientoFiltros2.setLayout(new javax.swing.BoxLayout(panelProcesamientoFiltros2, javax.swing.BoxLayout.LINE_AXIS));
-
-        combinar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/combinar.png"))); // NOI18N
-        combinar.setToolTipText("Combinación de bandas");
-        combinar.setMaximumSize(new java.awt.Dimension(40, 30));
-        combinar.setMinimumSize(new java.awt.Dimension(40, 30));
-        combinar.setPreferredSize(new java.awt.Dimension(40, 30));
-        combinar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                combinarActionPerformed(evt);
-            }
-        });
-        panelProcesamientoFiltros2.add(combinar);
 
         panelProcesamientoFiltros3.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
         panelProcesamientoFiltros3.setMaximumSize(new java.awt.Dimension(143, 60));
@@ -1050,7 +1129,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         sliderTintado.setMaximum(10);
         sliderTintado.setPaintLabels(true);
         sliderTintado.setPaintTicks(true);
-        sliderTintado.setToolTipText("Valor de alfa");
+        sliderTintado.setToolTipText("Valor de alfa para el tintado");
         sliderTintado.setValue(0);
         sliderTintado.setEnabled(false);
         sliderTintado.setMaximumSize(new java.awt.Dimension(90, 46));
@@ -1072,30 +1151,6 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         panelProcesamientoFiltros3.add(sliderTintado);
 
         panelProcesamientoFiltros2.add(panelProcesamientoFiltros3);
-
-        sepia.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/sepia.png"))); // NOI18N
-        sepia.setToolTipText("Filtro sepia");
-        sepia.setMaximumSize(new java.awt.Dimension(40, 30));
-        sepia.setMinimumSize(new java.awt.Dimension(40, 30));
-        sepia.setPreferredSize(new java.awt.Dimension(40, 30));
-        sepia.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                sepiaActionPerformed(evt);
-            }
-        });
-        panelProcesamientoFiltros2.add(sepia);
-
-        ecualizacion.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/ecualizar.png"))); // NOI18N
-        ecualizacion.setToolTipText("Ecualización");
-        ecualizacion.setMaximumSize(new java.awt.Dimension(40, 30));
-        ecualizacion.setMinimumSize(new java.awt.Dimension(40, 30));
-        ecualizacion.setPreferredSize(new java.awt.Dimension(40, 30));
-        ecualizacion.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ecualizacionActionPerformed(evt);
-            }
-        });
-        panelProcesamientoFiltros2.add(ecualizacion);
 
         panelProcesamientoFiltros4.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
         panelProcesamientoFiltros4.setMaximumSize(new java.awt.Dimension(143, 60));
@@ -1143,6 +1198,52 @@ public class VentanaPrincipal extends javax.swing.JFrame {
 
         panelProcesamientoFiltros2.add(panelProcesamientoFiltros4);
 
+        panelProcesamientoFiltros5.setBorder(new javax.swing.border.SoftBevelBorder(javax.swing.border.BevelBorder.RAISED));
+        panelProcesamientoFiltros5.setMaximumSize(new java.awt.Dimension(143, 60));
+        panelProcesamientoFiltros5.setMinimumSize(new java.awt.Dimension(143, 60));
+        panelProcesamientoFiltros5.setPreferredSize(new java.awt.Dimension(143, 60));
+        panelProcesamientoFiltros5.setLayout(new javax.swing.BoxLayout(panelProcesamientoFiltros5, javax.swing.BoxLayout.LINE_AXIS));
+
+        pintarBordes.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/pintar lineas.png"))); // NOI18N
+        pintarBordes.setToolTipText("Activar pintado de bordes");
+        pintarBordes.setMaximumSize(new java.awt.Dimension(40, 30));
+        pintarBordes.setMinimumSize(new java.awt.Dimension(40, 30));
+        pintarBordes.setPreferredSize(new java.awt.Dimension(40, 30));
+        pintarBordes.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                pintarBordesActionPerformed(evt);
+            }
+        });
+        panelProcesamientoFiltros5.add(pintarBordes);
+
+        sliderBordes.setMajorTickSpacing(16);
+        sliderBordes.setMaximum(64);
+        sliderBordes.setMinimum(16);
+        sliderBordes.setPaintLabels(true);
+        sliderBordes.setPaintTicks(true);
+        sliderBordes.setToolTipText("Umbral para pintar los bordes");
+        sliderBordes.setValue(16);
+        sliderBordes.setEnabled(false);
+        sliderBordes.setMaximumSize(new java.awt.Dimension(90, 46));
+        sliderBordes.setMinimumSize(new java.awt.Dimension(90, 46));
+        sliderBordes.setPreferredSize(new java.awt.Dimension(90, 46));
+        sliderBordes.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                sliderBordesStateChanged(evt);
+            }
+        });
+        sliderBordes.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                sliderBordesFocusGained(evt);
+            }
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                sliderBordesFocusLost(evt);
+            }
+        });
+        panelProcesamientoFiltros5.add(sliderBordes);
+
+        panelProcesamientoFiltros2.add(panelProcesamientoFiltros5);
+
         sliderPosterizado.setMajorTickSpacing(9);
         sliderPosterizado.setMaximum(20);
         sliderPosterizado.setMinimum(2);
@@ -1168,17 +1269,53 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         });
         panelProcesamientoFiltros2.add(sliderPosterizado);
 
-        pintarBordes.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/pintar lineas.png"))); // NOI18N
-        pintarBordes.setToolTipText("Pintar bordes");
-        pintarBordes.setMaximumSize(new java.awt.Dimension(40, 30));
-        pintarBordes.setMinimumSize(new java.awt.Dimension(40, 30));
-        pintarBordes.setPreferredSize(new java.awt.Dimension(40, 30));
-        pintarBordes.addActionListener(new java.awt.event.ActionListener() {
+        combinar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/combinar.png"))); // NOI18N
+        combinar.setToolTipText("Combinación de bandas");
+        combinar.setMaximumSize(new java.awt.Dimension(40, 30));
+        combinar.setMinimumSize(new java.awt.Dimension(40, 30));
+        combinar.setPreferredSize(new java.awt.Dimension(40, 30));
+        combinar.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                pintarBordesActionPerformed(evt);
+                combinarActionPerformed(evt);
             }
         });
-        panelProcesamientoFiltros2.add(pintarBordes);
+        panelProcesamientoFiltros2.add(combinar);
+
+        sepia.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/sepia.png"))); // NOI18N
+        sepia.setToolTipText("Filtro sepia");
+        sepia.setMaximumSize(new java.awt.Dimension(40, 30));
+        sepia.setMinimumSize(new java.awt.Dimension(40, 30));
+        sepia.setPreferredSize(new java.awt.Dimension(40, 30));
+        sepia.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                sepiaActionPerformed(evt);
+            }
+        });
+        panelProcesamientoFiltros2.add(sepia);
+
+        ecualizacion.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/ecualizar.png"))); // NOI18N
+        ecualizacion.setToolTipText("Ecualización");
+        ecualizacion.setMaximumSize(new java.awt.Dimension(40, 30));
+        ecualizacion.setMinimumSize(new java.awt.Dimension(40, 30));
+        ecualizacion.setPreferredSize(new java.awt.Dimension(40, 30));
+        ecualizacion.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ecualizacionActionPerformed(evt);
+            }
+        });
+        panelProcesamientoFiltros2.add(ecualizacion);
+
+        negativo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/iconos/negativo.png"))); // NOI18N
+        negativo.setToolTipText("Negativo");
+        negativo.setMaximumSize(new java.awt.Dimension(40, 30));
+        negativo.setMinimumSize(new java.awt.Dimension(40, 30));
+        negativo.setPreferredSize(new java.awt.Dimension(40, 30));
+        negativo.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                negativoActionPerformed(evt);
+            }
+        });
+        panelProcesamientoFiltros2.add(negativo);
 
         panelProcesamiento.add(panelProcesamientoFiltros2);
 
@@ -1258,10 +1395,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      * @param evt
      */
     private void trazoLibreActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_trazoLibreActionPerformed
-        if (this.ventanaActiva()) {
-            this.activa.getLienzo().setFiguraTrazo();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setFiguraTrazo();
         }
-        this.barraEstado.setText("Trazo Libre");
+        barraEstado.setText("Trazo Libre");
     }//GEN-LAST:event_trazoLibreActionPerformed
 
     /**
@@ -1272,10 +1410,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      * @param evt
      */
     private void lineaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_lineaActionPerformed
-        if (this.ventanaActiva()) {
-            this.activa.getLienzo().setFiguraLinea();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setFiguraLinea();
         }
-        this.barraEstado.setText("Linea");
+        barraEstado.setText("Linea");
     }//GEN-LAST:event_lineaActionPerformed
 
     /**
@@ -1286,10 +1425,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      * @param evt
      */
     private void rectanguloActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rectanguloActionPerformed
-        if (this.ventanaActiva()) {
-            this.activa.getLienzo().setFiguraRectangulo();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setFiguraRectangulo();
         }
-        this.barraEstado.setText("Rectangulo");
+        barraEstado.setText("Rectangulo");
     }//GEN-LAST:event_rectanguloActionPerformed
 
     /**
@@ -1300,10 +1440,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      * @param evt
      */
     private void elipseActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_elipseActionPerformed
-        if (this.ventanaActiva()) {
-            this.activa.getLienzo().setFiguraElipse();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setFiguraElipse();
         }
-        this.barraEstado.setText("Elipse");
+        barraEstado.setText("Elipse");
     }//GEN-LAST:event_elipseActionPerformed
 
     /**
@@ -1314,10 +1455,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      * @param evt
      */
     private void curvaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_curvaActionPerformed
-        if (this.ventanaActiva()) {
-            this.activa.getLienzo().setFiguraCurva();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setFiguraCurva();
         }
-        this.barraEstado.setText("Curva");
+        barraEstado.setText("Curva");
     }//GEN-LAST:event_curvaActionPerformed
 
     /**
@@ -1337,7 +1479,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         if (Integer.parseInt(ancho) <= 0 || ancho.equals(""))
             ancho = "300";
         BufferedImage imagen = new BufferedImage(Integer.parseInt(alto), Integer.parseInt(ancho), BufferedImage.TYPE_INT_RGB);
-        this.añadirVentana(imagen, "Imagen nueva");
+        this.añadirVentanaImagen(imagen, "Imagen nueva");
     }//GEN-LAST:event_archivo_nuevoActionPerformed
 
     /**
@@ -1354,17 +1496,47 @@ public class VentanaPrincipal extends javax.swing.JFrame {
                 File f = dlg.getSelectedFile();
                 File fichero = crearFichero(f);
                 String extension = this.obtenerExtension(fichero);
-                if (this.comprobarExtensionVideo(extension))
+                if (this.comprobarExtensionAudio(extension)) // La extensión del archivo es de audio
                     this.comprobarSiExiste(fichero);
-                else if (comprobarExtensionImagen(extension)){
+                else if (comprobarExtensionImagen(extension)){ // La extensión del archivo es de imagen
                     BufferedImage imagen = ImageIO.read(f);
-                    this.añadirVentana(imagen, f.getName());
-                }
+                    this.añadirVentanaImagen(imagen, f.getName());
+                } else // La extensión del archivo es de video
+                    this.añadirVentanaVideo(f);
             } catch (IOException ex) {
                 System.err.println("Error al leer la imagen");
             }
         }
     }//GEN-LAST:event_archivo_abrirActionPerformed
+
+    private void comprobarSiExiste(File fichero) {
+        Boolean existe = false;
+        int i = 0;
+        int elementos = listaAudios.getItemCount();
+        if (elementos > 0) {
+            while (i < elementos && !existe) {
+                if (listaAudios.getItemAt(i).equals(fichero)) {
+                    existe = true;
+                }
+                i++;
+            }
+        }
+        int valor = -1;
+        if (existe)
+            valor = JOptionPane.showConfirmDialog(this, "El archivo seleccionado ya está en la lista de reproducción.\n ¿Desea sobreescribirlo?", "Sobreescribir archivo", JOptionPane.YES_NO_OPTION);
+        if (valor == 0) {
+            listaAudios.removeItemAt(i-1);
+            listaAudios.addItem(fichero);
+            listaAudios.setSelectedItem(fichero);
+            JOptionPane.showMessageDialog(this, "Archivo sobreescrito correctamente.");
+        } else if (valor == 1)
+            JOptionPane.showMessageDialog(this, "El archivo no se ha añadido.");
+        else if (!existe){
+            listaAudios.addItem(fichero);
+            listaAudios.setSelectedItem(fichero);
+            JOptionPane.showMessageDialog(this, "Archivo añadido a la lista.");
+        }
+    }
 
     private boolean comprobarExtensionImagen(String extension){
         boolean existe = false;
@@ -1374,14 +1546,13 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         return existe;
     }
 
-private boolean comprobarExtensionVideo(String extension){
+    private boolean comprobarExtensionAudio(String extension){
         boolean existe = false;
         for (AudioFileFormat.Type t: AudioSystem.getAudioFileTypes())
             if (t.getExtension().equals(extension))
                 existe = true;
-        return existe;
-                
-}
+        return existe;     
+    }
 
     private File crearFichero(File f){
         File fichero = new File(f.getAbsolutePath()) {
@@ -1393,17 +1564,24 @@ private boolean comprobarExtensionVideo(String extension){
         return fichero;
     }
 
-    private void añadirVentana(BufferedImage imagen, String titulo) {
-        this.activa = new VentanaInterna();
-        this.escritorio.add(this.activa);
-        this.activa.setVisible(true);
-        this.activa.addVentanaInternaListener(this.manejadorVentanaInterna);
-        miManejadorLienzo manejadorLienzo = new miManejadorLienzo ();
-        this.activa.addLienzoListener(manejadorLienzo);
-        this.activa.getLienzo().setImagen(imagen);
-        this.activa.setTitle(titulo);
-        miManejadorRaton manejadorRaton = new miManejadorRaton();
-        this.activa.getLienzo().addMouseMotionListener(manejadorRaton);
+    private void añadirVentanaImagen(BufferedImage imagen, String titulo) {
+        VentanaInternaImagen ventana = new VentanaInternaImagen(imagen);
+        ventana.setVisible(true);
+        ventana.setTitle(titulo);
+        ventana.addVentanaInternaListener (new miManejadorVentanaInterna());
+        ventana.addLienzoListener(new miManejadorLienzo());
+        ventana.addRatonListener(new miManejadorRaton());
+        activa = ventana;
+        escritorio.add(ventana);
+    }
+    
+    private void añadirVentanaVideo(File ficheroVideo){
+        VentanaInternaVideo ventana = VentanaInternaVideo.getInstance(ficheroVideo);
+        ventana.setVisible(true);
+        ventana.setTitle(ficheroVideo.getName());
+        ventana.addMediaPlayerListener(new miManejadorVideo());
+        activa = ventana;
+        escritorio.add(ventana);
     }
 
     /**
@@ -1413,8 +1591,9 @@ private boolean comprobarExtensionVideo(String extension){
      * @param evt
      */
     private void archivo_guardarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_archivo_guardarActionPerformed
-        if (this.ventanaActiva()) {
-            BufferedImage imagen = activa.getLienzo().getImagenGuardar();
+        if (ventanaActiva() && !(activa instanceof VentanaInternaVideo)){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage imagen = ventana.getLienzo().getImagenGuardar();
             if (imagen != null) {
                 dlg.setFileFilter(definirFiltro());
                 int resp = dlg.showSaveDialog(this);
@@ -1455,15 +1634,18 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_guardarActionPerformed
 
     private void spinnerGrosorStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_spinnerGrosorStateChanged
-        if (this.ventanaActiva())
-            this.activa.getLienzo().setGrosor((Integer) this.spinnerGrosor.getValue());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setGrosor((Integer) spinnerGrosor.getValue());
+        }
     }//GEN-LAST:event_spinnerGrosorStateChanged
 
     private void sliderBrilloStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderBrilloStateChanged
-        if (this.ventanaActiva() && this.copiaImagen != null) {
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen && this.copiaImagen != null){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
             try {
                 RescaleOp rop = new RescaleOp(1.0F, (float) this.sliderBrillo.getValue(), null);
-                rop.filter(this.copiaImagen, this.activa.getLienzo().getImagen());
+                rop.filter(this.copiaImagen, ventana.getLienzo().getImagen());
                 escritorio.repaint();
             } catch (IllegalArgumentException e) {
                 System.err.println(e.getLocalizedMessage());
@@ -1477,13 +1659,14 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_sliderBrilloFocusLost
 
     private void sliderContrasteStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderContrasteStateChanged
-        if (this.ventanaActiva() && this.copiaImagen != null) {
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen && this.copiaImagen != null) {
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
             try {
                 float valor = (float) (this.sliderContraste.getValue() / 10.0);
                 float[] filtro = {valor, valor, valor, valor, valor, valor, valor, valor, valor, valor};
                 Kernel k = new Kernel(3, 3, filtro);
                 ConvolveOp cop = new ConvolveOp(k);
-                cop.filter(this.copiaImagen, this.activa.getLienzo().getImagen());
+                cop.filter(this.copiaImagen, ventana.getLienzo().getImagen());
                 escritorio.repaint();
             } catch (IllegalArgumentException e) {
                 System.err.println(e.getLocalizedMessage());
@@ -1492,20 +1675,21 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_sliderContrasteStateChanged
 
     private void sliderBrilloFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderBrilloFocusGained
-        this.copiarImagen();
+        copiarImagen();
     }//GEN-LAST:event_sliderBrilloFocusGained
 
     private void sliderContrasteFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderContrasteFocusLost
-        this.copiaImagen = null;
-        this.sliderContraste.setValue(0);
+        copiaImagen = null;
+        sliderContraste.setValue(0);
     }//GEN-LAST:event_sliderContrasteFocusLost
 
     private void sliderContrasteFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderContrasteFocusGained
-        this.copiarImagen();
+        copiarImagen();
     }//GEN-LAST:event_sliderContrasteFocusGained
 
     private void comboBoxFiltrosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_comboBoxFiltrosActionPerformed
-        if (this.ventanaActiva()) {
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
             int filtro = this.comboBoxFiltros.getSelectedIndex();
             Kernel k = null;
             switch (filtro) {
@@ -1527,8 +1711,8 @@ private boolean comprobarExtensionVideo(String extension){
             }
             ConvolveOp cop = new ConvolveOp(k, ConvolveOp.EDGE_NO_OP, null);
             BufferedImage imgDest = null;
-            imgDest = cop.filter(this.activa.getLienzo().getImagen(), imgDest);
-            this.activa.getLienzo().setImagen(imgDest);
+            imgDest = cop.filter(ventana.getLienzo().getImagen(), imgDest);
+            ventana.getLienzo().setImagen(imgDest);
             escritorio.repaint();
         }
     }//GEN-LAST:event_comboBoxFiltrosActionPerformed
@@ -1538,116 +1722,107 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_sliderFiltroStateChanged
 
     private void sliderFiltroFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderFiltroFocusLost
-        this.copiaImagen = null;
-        this.sliderFiltro.setValue(1);
+        copiaImagen = null;
+        sliderFiltro.setValue(1);
     }//GEN-LAST:event_sliderFiltroFocusLost
 
     private void sliderFiltroFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderFiltroFocusGained
-        this.copiarImagen();
+        copiarImagen();
     }//GEN-LAST:event_sliderFiltroFocusGained
 
 // ????????????
     private void comboBoxColoresMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_comboBoxColoresMouseClicked
-        if (this.ventanaActiva())
-            this.activa.getLienzo().setFondo(this.colorFondo.getValue());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setFondo(colorFondo.getValue());
+        }
     }//GEN-LAST:event_comboBoxColoresMouseClicked
 
     private void contrasteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_contrasteActionPerformed
         int type = LookupTableProducer.TYPE_SFUNCION;
         LookupTable tabla = LookupTableProducer.createLookupTable(type);
-        this.aplicarContraste(tabla);
+        aplicarContraste(tabla);
     }//GEN-LAST:event_contrasteActionPerformed
 
     private void iluminarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_iluminarActionPerformed
         LookupTable tabla = LookupTableProducer.rootFuction(2.0);
-        this.aplicarContraste(tabla);
+        aplicarContraste(tabla);
     }//GEN-LAST:event_iluminarActionPerformed
 
     private void oscurecerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_oscurecerActionPerformed
         LookupTable tabla = LookupTableProducer.gammaCorrection(1.0, 1.5);
-        this.aplicarContraste(tabla);
+        aplicarContraste(tabla);
     }//GEN-LAST:event_oscurecerActionPerformed
 
-    private void funcionCuadraticaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_funcionCuadraticaActionPerformed
-        byte funcionT[] = new byte[256];
-        for (int x = 0; x < 256; x++) {
-            funcionT[x] = (byte) (0.01 * Math.pow(x - 128, 2));
-            System.out.print(funcionT[x] + " ");
-        }
-        System.out.println("");
-        LookupTable tabla = new ByteLookupTable(0, funcionT);
-        this.aplicarContraste(tabla);
-    }//GEN-LAST:event_funcionCuadraticaActionPerformed
-
     private void sliderRotacionFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderRotacionFocusGained
-        this.copiarImagen();
+        copiarImagen();
     }//GEN-LAST:event_sliderRotacionFocusGained
 
     private void sliderRotacionStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderRotacionStateChanged
-        if (this.ventanaActiva() && activa.getLienzo().getImagen() != null) {
-            try {
-                double valor = this.sliderRotacion.getValue();
-                int centroAncho = this.copiaImagen.getWidth() / 2;
-                int centroAlto = this.copiaImagen.getHeight() / 2;
-                AffineTransform at = AffineTransform.getRotateInstance(Math.toRadians(valor), centroAncho, centroAlto);
-                AffineTransformOp atop = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
-                BufferedImage imgDest = null;
-                imgDest = atop.filter(this.copiaImagen, imgDest);
-                this.activa.getLienzo().setImagen(imgDest);
-                escritorio.repaint();
-            } catch (IllegalArgumentException e) {
-                System.err.println(e.getLocalizedMessage());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa; 
+            if (ventana.getLienzo().getImagen() != null) {
+                try {
+                    double valor = sliderRotacion.getValue();
+                    int centroAncho = copiaImagen.getWidth() / 2;
+                    int centroAlto = copiaImagen.getHeight() / 2;
+                    AffineTransform at = AffineTransform.getRotateInstance(Math.toRadians(valor), centroAncho, centroAlto);
+                    AffineTransformOp atop = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
+                    BufferedImage imgDest = null;
+                    imgDest = atop.filter(copiaImagen, imgDest);
+                    ventana.getLienzo().setImagen(imgDest);
+                    escritorio.repaint();
+                } catch (IllegalArgumentException e) {
+                    System.err.println(e.getLocalizedMessage());
+                }
             }
         }
     }//GEN-LAST:event_sliderRotacionStateChanged
 
     private void sliderRotacionFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderRotacionFocusLost
-        this.copiaImagen = null;
-        this.sliderFiltro.setValue(0);
+        copiaImagen = null;
+        sliderFiltro.setValue(0);
     }//GEN-LAST:event_sliderRotacionFocusLost
 
     private void rotacion90ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rotacion90ActionPerformed
-        this.aplicarRotacion(90);
+        aplicarRotacion(90);
     }//GEN-LAST:event_rotacion90ActionPerformed
 
     private void rotacion180ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rotacion180ActionPerformed
-        this.aplicarRotacion(180);
+        aplicarRotacion(180);
     }//GEN-LAST:event_rotacion180ActionPerformed
 
     private void rotacion270ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rotacion270ActionPerformed
-        this.aplicarRotacion(270);
+        aplicarRotacion(270);
     }//GEN-LAST:event_rotacion270ActionPerformed
 
     private void aumentarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_aumentarActionPerformed
-        this.aplicarEscalado(1.25);
+        aplicarEscalado(1.25);
     }//GEN-LAST:event_aumentarActionPerformed
 
     private void disminuirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_disminuirActionPerformed
-        this.aplicarEscalado(0.75);
+        aplicarEscalado(0.75);
     }//GEN-LAST:event_disminuirActionPerformed
 
     private void spinnerValorAStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_spinnerValorAStateChanged
         a = (Integer) spinnerValorA.getValue();
-        this.aplicarFuncion();
+        aplicarFuncion();
     }//GEN-LAST:event_spinnerValorAStateChanged
 
     private void spinnerValorBStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_spinnerValorBStateChanged
         b = (Integer) spinnerValorB.getValue();
-        this.aplicarFuncion();
+        aplicarFuncion();
     }//GEN-LAST:event_spinnerValorBStateChanged
 
     private void bandasActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bandasActionPerformed
-        if (this.ventanaActiva()) {
-            BufferedImage imagen = activa.getLienzo().getImagen();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage imagen = ventana.getLienzo().getImagen();
             if (imagen != null) {
                 BufferedImage img;
                 for (int i = 0; i < imagen.getRaster().getNumBands(); i++) {
                     img = this.getImagenBand(imagen, i);
-                    VentanaInterna vi = new VentanaInterna();
-                    vi.getLienzo().setImagen(img);
-                    vi.setTitle(activa.getTitle() + " - Banda " + i);
-                    this.escritorio.add(vi);
-                    vi.setVisible(true);
+                    añadirVentanaImagen(img, ventana.getTitle() + " - Banda " + i);
                 }
             }
         }
@@ -1656,18 +1831,14 @@ private boolean comprobarExtensionVideo(String extension){
     private void cambioEspacioActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cambioEspacioActionPerformed
         BufferedImage img;
         img = this.cambioEspacio(this.cambioEspacio.getSelectedIndex());
-        if (img != null) {
-            VentanaInterna vi = new VentanaInterna();
-            vi.getLienzo().setImagen(img);
-            vi.setTitle(activa.getTitle() + " - Espacio " + this.cambioEspacio.getItemAt(this.cambioEspacio.getSelectedIndex()));
-            this.escritorio.add(vi);
-            vi.setVisible(true);
-        }
+        if (img != null) 
+            añadirVentanaImagen(img, activa.getTitle() + " - Espacio " + this.cambioEspacio.getItemAt(this.cambioEspacio.getSelectedIndex()));
     }//GEN-LAST:event_cambioEspacioActionPerformed
 
     private void combinarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_combinarActionPerformed
-        if (this.ventanaActiva()) {
-            BufferedImage img = activa.getLienzo().getImagen();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage img = ventana.getLienzo().getImagen();
             if (img != null) {
                 try {
                     float[][] matriz = {{0.0F, 1.0F, 1.0F},
@@ -1684,33 +1855,40 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_combinarActionPerformed
 
     private void rellenoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rellenoActionPerformed
-        if (this.ventanaActiva())
-            this.activa.getLienzo().setRelleno(this.relleno.isSelected());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setRelleno(relleno.isSelected());
+        }
     }//GEN-LAST:event_rellenoActionPerformed
 
     private void transparenciaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_transparenciaActionPerformed
-        if (this.ventanaActiva())
-            this.activa.getLienzo().setTransparencia(this.transparencia.isSelected());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setTransparencia(transparencia.isSelected());
+        }
     }//GEN-LAST:event_transparenciaActionPerformed
 
     private void alisarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_alisarActionPerformed
-        if (this.ventanaActiva())
-            this.activa.getLienzo().setAlisar(this.alisar.isSelected());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setAlisar(alisar.isSelected());
+        }
     }//GEN-LAST:event_alisarActionPerformed
 
     private void moverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_moverActionPerformed
-        if (this.ventanaActiva()){
-            this.activa.getLienzo().setMover(this.mover.isSelected());
-            this.activa.getLienzo().marcarFigura((Shape)this.listaFiguras.getSelectedItem());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            ventana.getLienzo().setMover(mover.isSelected());
+            ventana.getLienzo().marcarFigura((Shape)listaFiguras.getSelectedItem());
             escritorio.repaint();
         }
     }//GEN-LAST:event_moverActionPerformed
 
     private void funcionTrapezoidalActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_funcionTrapezoidalActionPerformed
-        if (this.ventanaActiva()) {
-            boolean valor = this.funcionTrapezoidal.isSelected();
-            this.spinnerValorA.setEnabled(valor);
-            this.spinnerValorB.setEnabled(valor);
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            boolean valor = funcionTrapezoidal.isSelected();
+            spinnerValorA.setEnabled(valor);
+            spinnerValorB.setEnabled(valor);
             if (valor) {
                 a = (Integer) spinnerValorA.getValue();
                 b = (Integer) spinnerValorB.getValue();
@@ -1723,29 +1901,27 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_funcionTrapezoidalActionPerformed
 
     private void volcadoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_volcadoActionPerformed
-        if (this.ventanaActiva()) {
-            if (!this.activa.getLienzo().isVolcado()) {
-                int valor = JOptionPane.showConfirmDialog(this.activa.getLienzo(), "Esta opción es irreversible, ¿desea continuar?", "Confirmar volcado", JOptionPane.YES_NO_OPTION);
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            if (!ventana.getLienzo().isVolcado()) {
+                int valor = JOptionPane.showConfirmDialog(ventana.getLienzo(), "Esta opción es irreversible, ¿desea continuar?", "Confirmar volcado", JOptionPane.YES_NO_OPTION);
                 if (valor == 0) {
-                    this.activa.getLienzo().setVolcado(this.volcado.isSelected());
-                    JOptionPane.showMessageDialog(this.activa.getLienzo(), "Se han volcado las figuras a la imagen");
+                    ventana.getLienzo().setVolcado(volcado.isSelected());
+                    JOptionPane.showMessageDialog(ventana.getLienzo(), "Se han volcado las figuras a la imagen");
                 } else {
-                    this.volcado.setSelected(!this.volcado.isSelected());
-                    JOptionPane.showMessageDialog(this.activa.getLienzo(), "No se ha realizado el volcado");
+                    volcado.setSelected(!volcado.isSelected());
+                    JOptionPane.showMessageDialog(ventana.getLienzo(), "No se ha realizado el volcado");
                 }
             } else {
-                this.activa.getLienzo().setVolcado(this.volcado.isSelected());
+                ventana.getLienzo().setVolcado(volcado.isSelected());
             }
         }
     }//GEN-LAST:event_volcadoActionPerformed
 
-    private void escritorioComponentMoved(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_escritorioComponentMoved
-        System.out.println("a");
-    }//GEN-LAST:event_escritorioComponentMoved
-
     private void sepiaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sepiaActionPerformed
-        if (ventanaActiva()) {
-            BufferedImage img = this.activa.getLienzo().getImagen();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage img = ventana.getLienzo().getImagen();
             if (img != null) {
                 SepiaOp sepia = new SepiaOp();
                 sepia.filter(img, img);
@@ -1755,8 +1931,9 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_sepiaActionPerformed
 
     private void ecualizacionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ecualizacionActionPerformed
-        if (ventanaActiva()) {
-            BufferedImage img = this.activa.getLienzo().getImagen();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage img = ventana.getLienzo().getImagen();
             if (img != null) {
                 EqualizationOp ecualizacion = new EqualizationOp();
                 ecualizacion.filter(img, img);
@@ -1766,112 +1943,110 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_ecualizacionActionPerformed
 
     private void sliderPosterizadoStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderPosterizadoStateChanged
-        if (this.ventanaActiva() && activa.getLienzo().getImagen() != null) {
-            try {
-                int valor = this.sliderPosterizado.getValue();
-                PosterizarOp posterizar = new PosterizarOp(valor);
-                BufferedImage imgDest = null;
-                imgDest = posterizar.filter(this.copiaImagen, imgDest);
-                this.activa.getLienzo().setImagen(imgDest);
-                escritorio.repaint();
-            } catch (IllegalArgumentException e) {
-                System.err.println(e.getLocalizedMessage());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            if (ventana.getLienzo().getImagen() != null) {
+                try {
+                    int valor = sliderPosterizado.getValue();
+                    PosterizarOp posterizar = new PosterizarOp(valor);
+                    BufferedImage imgDest = null;
+                    imgDest = posterizar.filter(copiaImagen, imgDest);
+                    ventana.getLienzo().setImagen(imgDest);
+                    escritorio.repaint();
+                } catch (IllegalArgumentException e) {
+                    System.err.println(e.getLocalizedMessage());
+            }
             }
         }
     }//GEN-LAST:event_sliderPosterizadoStateChanged
 
     private void sliderPosterizadoFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderPosterizadoFocusGained
-        this.copiarImagen();
+        copiarImagen();
     }//GEN-LAST:event_sliderPosterizadoFocusGained
 
     private void sliderPosterizadoFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderPosterizadoFocusLost
-        this.copiaImagen = null;
-        this.sliderPosterizado.setValue(2);
+        copiaImagen = null;
+        sliderPosterizado.setValue(2);
     }//GEN-LAST:event_sliderPosterizadoFocusLost
 
-    private void pintarBordesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pintarBordesActionPerformed
-        if (ventanaActiva()) {
-            BufferedImage img = this.activa.getLienzo().getImagen();
-            if (img != null) {
-                BordeOp borde = new BordeOp(10);
-                borde.filter(img, img);
-            }
-            escritorio.repaint();
-        }
-    }//GEN-LAST:event_pintarBordesActionPerformed
-
     private void sliderTintadoStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderTintadoStateChanged
-        if (this.ventanaActiva() && activa.getLienzo().getImagen() != null) {
-            try {
-                float valor = (float) (this.sliderTintado.getValue() / 10.0);
-                TintOp tintado = new TintOp(this.activa.getLienzo().getFondo(), valor);
-                BufferedImage imgDest = null;
-                imgDest = tintado.filter(this.copiaImagen, imgDest);
-                this.activa.getLienzo().setImagen(imgDest);
-                escritorio.repaint();
-            } catch (IllegalArgumentException e) {
-                System.err.println(e.getLocalizedMessage());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            if (ventana.getLienzo().getImagen() != null) {
+                try {
+                    float valor = (float) (sliderTintado.getValue() / 10.0);
+                    TintOp tintado = new TintOp(ventana.getLienzo().getFondo(), valor);
+                    BufferedImage imgDest = null;
+                    imgDest = tintado.filter(copiaImagen, imgDest);
+                    ventana.getLienzo().setImagen(imgDest);
+                    escritorio.repaint();
+                } catch (IllegalArgumentException e) {
+                    System.err.println(e.getLocalizedMessage());
+                }
             }
         }
     }//GEN-LAST:event_sliderTintadoStateChanged
 
     private void sliderTintadoFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderTintadoFocusGained
-        this.copiarImagen();
+        copiarImagen();
     }//GEN-LAST:event_sliderTintadoFocusGained
 
     private void sliderTintadoFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderTintadoFocusLost
-        this.copiaImagen = null;
-        this.sliderPosterizado.setValue(0);
+        copiaImagen = null;
+        sliderPosterizado.setValue(0);
     }//GEN-LAST:event_sliderTintadoFocusLost
 
     private void tintadoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_tintadoActionPerformed
-        if (this.ventanaActiva())
-            this.sliderTintado.setEnabled(this.tintado.isSelected());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen)
+            sliderTintado.setEnabled(tintado.isSelected());
     }//GEN-LAST:event_tintadoActionPerformed
 
     private void sliderFiltroRojoStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderFiltroRojoStateChanged
-        if (this.ventanaActiva() && activa.getLienzo().getImagen() != null) {
-            try {
-                int valor = this.sliderFiltroRojo.getValue();
-                RojoOp rojo = new RojoOp(valor);
-                BufferedImage imgDest = null;
-                imgDest = rojo.filter(this.copiaImagen, imgDest);
-                this.activa.getLienzo().setImagen(imgDest);
-                escritorio.repaint();
-            } catch (IllegalArgumentException e) {
-                System.err.println(e.getLocalizedMessage());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            if (ventana.getLienzo().getImagen() != null) {
+                try {
+                    int valor = sliderFiltroRojo.getValue();
+                    RojoOp rojo = new RojoOp(valor);
+                    BufferedImage imgDest = null;
+                    imgDest = rojo.filter(copiaImagen, imgDest);
+                    ventana.getLienzo().setImagen(imgDest);
+                    escritorio.repaint();
+                } catch (IllegalArgumentException e) {
+                    System.err.println(e.getLocalizedMessage());
+                }
             }
         }
     }//GEN-LAST:event_sliderFiltroRojoStateChanged
 
     private void sliderFiltroRojoFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderFiltroRojoFocusGained
-        this.copiarImagen();
+        copiarImagen();
     }//GEN-LAST:event_sliderFiltroRojoFocusGained
 
     private void sliderFiltroRojoFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderFiltroRojoFocusLost
-        this.copiaImagen = null;
-        this.sliderPosterizado.setValue(0);
+        copiaImagen = null;
+        sliderPosterizado.setValue(0);
     }//GEN-LAST:event_sliderFiltroRojoFocusLost
 
     private void filtroRojoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_filtroRojoActionPerformed
-        if (this.ventanaActiva())
-            this.sliderFiltroRojo.setEnabled(this.filtroRojo.isSelected());
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen)
+            sliderFiltroRojo.setEnabled(filtroRojo.isSelected());
     }//GEN-LAST:event_filtroRojoActionPerformed
 
     private void grabarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_grabarActionPerformed
-        if (this.grabar.isSelected()) {
+        if (grabar.isSelected()) {
             int resp = dlg.showSaveDialog(this);
             if (resp == JFileChooser.APPROVE_OPTION) {
                 audioGrabado = dlg.getSelectedFile();
                 recorder = new SMSoundRecorder(audioGrabado);
                 if (recorder != null) {
-                    recorder.addLineListener(manejadorAudio);
+                    recorder.addLineListener(new miManejadorAudio());
                     recorder.record();
                 }
             }
         } else if (recorder != null) {
-            File fichero = this.crearFichero(audioGrabado);
-            this.comprobarSiExiste(fichero);
+            File fichero = crearFichero(audioGrabado);
+            comprobarSiExiste(fichero);
             recorder.stop();
             recorder = null;
         }
@@ -1879,23 +2054,23 @@ private boolean comprobarExtensionVideo(String extension){
 
     private void inicioYPausaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_inicioYPausaActionPerformed
         if (inicioOPausa == 1) {
-            if (this.player == null) {
+            if (player == null) {
                 File f = (File) listaAudios.getSelectedItem();
                 if (f != null) {
                     player = new SMClipPlayer(f);
                     if (player != null) {
-                        player.addLineListener(manejadorAudio);
+                        player.addLineListener(new miManejadorAudio());
                         player.play();
                     }
-                    this.añadirDuracionAudio();
+                    añadirDuracionAudio();
                 }
-            } else if (this.player.getClip() != null) {
-                this.player.getClip().setMicrosecondPosition(this.tiempoPausa);
-                this.player.play();
+            } else if (player.getClip() != null) {
+                player.getClip().setMicrosecondPosition(tiempoPausa);
+                player.play();
             }
-        } else if (this.inicioOPausa == 2 && this.player != null) {
-            this.tiempoPausa = this.player.getClip().getMicrosecondPosition();
-            this.player.stop();
+        } else if (inicioOPausa == 2 && player != null) {
+            tiempoPausa = player.getClip().getMicrosecondPosition();
+            player.stop();
         }
     }//GEN-LAST:event_inicioYPausaActionPerformed
 
@@ -1918,31 +2093,149 @@ private boolean comprobarExtensionVideo(String extension){
     }//GEN-LAST:event_acercaDeActionPerformed
 
     private void selectorBordeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectorBordeActionPerformed
-        Color c = obtenerColor("Seleccionar color de borde");
-        if (c != null)
-            activa.getLienzo().setBorde(c);
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            Color c = obtenerColor("Seleccionar color de borde");
+            if (c != null)
+                ventana.getLienzo().setBorde(c);
+        }
     }//GEN-LAST:event_selectorBordeActionPerformed
 
     private void selectorFondoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectorFondoActionPerformed
-        Color c = obtenerColor("Seleccionar color de fondo");
-        if (c != null)
-            activa.getLienzo().setFondo(c);
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            Color c = obtenerColor("Seleccionar color de fondo");
+            if (c != null)
+                ventana.getLienzo().setFondo(c);
+        }
     }//GEN-LAST:event_selectorFondoActionPerformed
 
     private void duplicarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_duplicarActionPerformed
-    if (this.ventanaActiva()){        
-        this.copiarImagen();
-        this.añadirVentana(this.copiaImagen, this.activa.getTitle() + " - Copia");
-    }
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){     
+            this.copiarImagen();
+            this.añadirVentanaImagen(this.copiaImagen, this.activa.getTitle() + " - Copia");
+            escritorio.repaint();
+        }
     }//GEN-LAST:event_duplicarActionPerformed
 
     private void listaFigurasActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_listaFigurasActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_listaFigurasActionPerformed
 
+    private void inicioVideoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_inicioVideoActionPerformed
+        if (ventanaActiva() && activa instanceof VentanaInternaVideo){
+            VentanaInternaVideo ventana = (VentanaInternaVideo)activa;
+            if (ventana != null)
+                ventana.play();
+        }
+    }//GEN-LAST:event_inicioVideoActionPerformed
+
+    private void finVideoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_finVideoActionPerformed
+        if (ventanaActiva() && activa instanceof VentanaInternaVideo){
+            VentanaInternaVideo ventana = (VentanaInternaVideo)activa;
+            if (ventana != null)
+                ventana.stop();
+        }
+    }//GEN-LAST:event_finVideoActionPerformed
+
+    private void camaraWebActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_camaraWebActionPerformed
+        VentanaInternaCamara ventana = VentanaInternaCamara.getInstance();
+        ventana.setVisible(true);
+        ventana.setTitle("Webcam");
+        escritorio.add(ventana);
+        escritorio.repaint();
+    }//GEN-LAST:event_camaraWebActionPerformed
+
+    private void capturarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_capturarActionPerformed
+        if (ventanaActiva() && activa instanceof VentanaInternaCamara){
+            VentanaInternaCamara ventana = (VentanaInternaCamara)activa;
+            BufferedImage img = ventana.capturar();
+            if (img != null)
+                añadirVentanaImagen(img, "Captura webcam");
+        }
+    }//GEN-LAST:event_capturarActionPerformed
+
+    private void negativoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_negativoActionPerformed
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage img = ventana.getLienzo().getImagen();
+            if (img != null) {
+                NegativoOp negativo = new NegativoOp();
+                negativo.filter(img, img);
+            }
+            escritorio.repaint();
+        }
+    }//GEN-LAST:event_negativoActionPerformed
+
+    private void sliderBordesStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderBordesStateChanged
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            if (ventana.getLienzo().getImagen() != null) {
+                try {
+                    int valor = sliderBordes.getValue();
+                    BordeOp borde = new BordeOp(valor, ventana.getLienzo().getBorde());
+                    BufferedImage imgDest = null;
+                    imgDest = borde.filter(copiaImagen, imgDest);
+                    ventana.getLienzo().setImagen(imgDest);
+                    escritorio.repaint();
+                    
+                } catch (IllegalArgumentException e) {
+                    System.err.println(e.getLocalizedMessage());
+                }
+            }
+        }
+    }//GEN-LAST:event_sliderBordesStateChanged
+
+    private void sliderBordesFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderBordesFocusGained
+        copiarImagen();
+    }//GEN-LAST:event_sliderBordesFocusGained
+
+    private void sliderBordesFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderBordesFocusLost
+        copiaImagen = null;
+        sliderPosterizado.setValue(0);
+    }//GEN-LAST:event_sliderBordesFocusLost
+
+    private void pintarBordesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pintarBordesActionPerformed
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen)
+            sliderBordes.setEnabled(pintarBordes.isSelected());
+    }//GEN-LAST:event_pintarBordesActionPerformed
+
+    private void funcionCuadraticaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_funcionCuadraticaActionPerformed
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen)
+            sliderFuncionCuadratica.setEnabled(funcionCuadratica.isSelected());
+    }//GEN-LAST:event_funcionCuadraticaActionPerformed
+
+    private void sliderFuncionCuadraticaStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sliderFuncionCuadraticaStateChanged
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            if (ventana.getLienzo().getImagen() != null) {
+                try {
+                    int valor = sliderFuncionCuadratica.getValue();
+                    byte funcionT[] = new byte[256];
+                    for (int x = 0; x < 256; x++)
+                        funcionT[x] = (byte) (0.01 * Math.pow(x - valor, 2));
+                    LookupTable tabla = new ByteLookupTable(0, funcionT);
+                    aplicarContraste(tabla);
+                    escritorio.repaint();
+                } catch (IllegalArgumentException e) {
+                    System.err.println(e.getLocalizedMessage());
+                }
+            }
+        }
+    }//GEN-LAST:event_sliderFuncionCuadraticaStateChanged
+
+    private void sliderFuncionCuadraticaFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderFuncionCuadraticaFocusGained
+        copiarImagen();
+    }//GEN-LAST:event_sliderFuncionCuadraticaFocusGained
+
+    private void sliderFuncionCuadraticaFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_sliderFuncionCuadraticaFocusLost
+        copiaImagen = null;
+        sliderPosterizado.setValue(0);
+    }//GEN-LAST:event_sliderFuncionCuadraticaFocusLost
+
     private Color obtenerColor(String titulo){
         Color c = null;
-        if (this.ventanaActiva()){
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
             JColorChooser colores = new JColorChooser();
             c = colores.showDialog(this, titulo, Color.BLACK);
         }
@@ -1950,7 +2243,7 @@ private boolean comprobarExtensionVideo(String extension){
     }
 
     private void añadirDuracionAudio() {
-        long duracion = (this.player.getClip().getMicrosecondLength() / 1000000);
+        long duracion = (player.getClip().getMicrosecondLength() / 1000000);
         long minutos = 0, segundos = 0;
         if (duracion >= 60) {
             minutos = (duracion / 60);
@@ -1968,17 +2261,18 @@ private boolean comprobarExtensionVideo(String extension){
     }
 
     private void aplicarContraste(LookupTable tabla) {
-        if (this.ventanaActiva()) {
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
             BufferedImage img = null;
-            if (this.copiaImagen != null) {
-                img = this.copiaImagen;
+            if (copiaImagen != null) {
+                img = copiaImagen;
             } else {
-                img = activa.getLienzo().getImagen();
+                img = ventana.getLienzo().getImagen();
             }
             if (img != null) {
                 try {
                     LookupOp lop = new LookupOp(tabla, null);
-                    lop.filter(img, activa.getLienzo().getImagen());
+                    lop.filter(img, ventana.getLienzo().getImagen());
                     escritorio.repaint();
                 } catch (IllegalArgumentException e) {
                     System.err.println(e.getLocalizedMessage());
@@ -1988,8 +2282,9 @@ private boolean comprobarExtensionVideo(String extension){
     }
 
     private void aplicarRotacion(int valor) {
-        if (this.ventanaActiva()) {
-            BufferedImage img = activa.getLienzo().getImagen();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage img = ventana.getLienzo().getImagen();
             if (img != null) {
                 try {
                     int centroAncho = img.getWidth() / 2;
@@ -1997,7 +2292,7 @@ private boolean comprobarExtensionVideo(String extension){
                     AffineTransform at = AffineTransform.getRotateInstance(Math.toRadians(valor), centroAncho, centroAlto);
                     AffineTransformOp atop = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
                     BufferedImage imgDest = atop.filter(img, null);
-                    activa.getLienzo().setImagen(imgDest);
+                    ventana.getLienzo().setImagen(imgDest);
                     escritorio.repaint();
                 } catch (IllegalArgumentException e) {
                     System.err.println(e.getLocalizedMessage());
@@ -2007,14 +2302,15 @@ private boolean comprobarExtensionVideo(String extension){
     }
 
     private void aplicarEscalado(double valor) {
-        if (this.ventanaActiva()) {
-            BufferedImage img = activa.getLienzo().getImagen();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage img = ventana.getLienzo().getImagen();
             if (img != null) {
                 try {
                     AffineTransform at = AffineTransform.getScaleInstance(valor, valor);
                     AffineTransformOp atop = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
                     BufferedImage imgDest = atop.filter(img, null);
-                    activa.getLienzo().setImagen(imgDest);
+                    ventana.getLienzo().setImagen(imgDest);
                     escritorio.repaint();
                 } catch (IllegalArgumentException e) {
                     System.err.println(e.getLocalizedMessage());
@@ -2039,7 +2335,6 @@ private boolean comprobarExtensionVideo(String extension){
                 funcionT[x] = (byte) ((255.0 - x) / (255.0 - b) * 255.0);
             }
         }
-        System.out.println("");
         LookupTable tabla = new ByteLookupTable(0, funcionT);
         this.aplicarContraste(tabla);
     }
@@ -2057,8 +2352,9 @@ private boolean comprobarExtensionVideo(String extension){
 
     private BufferedImage cambioEspacio(int i) {
         BufferedImage imgDest = null;
-        if (this.ventanaActiva()) {
-            BufferedImage img = this.activa.getLienzo().getImagen();
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            BufferedImage img = ventana.getLienzo().getImagen();
             if (img != null) {
                 ColorSpace cs = null;
                 ColorConvertOp cop = null;
@@ -2087,11 +2383,14 @@ private boolean comprobarExtensionVideo(String extension){
     }
 
     private void copiarImagen() {
-        if (this.ventanaActiva() && activa.getLienzo().getImagen() != null) {
-            ColorModel cm = activa.getLienzo().getImagen().getColorModel();
-            WritableRaster raster = activa.getLienzo().getImagen().copyData(null);
-            boolean alfaPre = activa.getLienzo().getImagen().isAlphaPremultiplied();
-            this.copiaImagen = new BufferedImage(cm, raster, alfaPre, null);
+        if (ventanaActiva() && activa instanceof VentanaInternaImagen){
+            VentanaInternaImagen ventana = (VentanaInternaImagen)activa;
+            if (ventana.getLienzo().getImagen() != null) {
+                ColorModel cm = ventana.getLienzo().getImagen().getColorModel();
+                WritableRaster raster = ventana.getLienzo().getImagen().copyData(null);
+                boolean alfaPre = ventana.getLienzo().getImagen().isAlphaPremultiplied();
+                this.copiaImagen = new BufferedImage(cm, raster, alfaPre, null);
+            }
         }
     }
 
@@ -2109,8 +2408,7 @@ private boolean comprobarExtensionVideo(String extension){
         List <String> formatos = new ArrayList();
         for (AudioFileFormat.Type t : AudioSystem.getAudioFileTypes()) 
             formatos.add(t.getExtension());
-        for (String s : ImageIO.getReaderFormatNames()) 
-            formatos.add(s);
+        formatos.addAll(Arrays.asList(ImageIO.getReaderFormatNames()));
         FileFilter filtro = new FileNameExtensionFilter("", formatos.toArray(new String[0]));
         return filtro;
     }
@@ -2135,7 +2433,9 @@ private boolean comprobarExtensionVideo(String extension){
     private javax.swing.JMenu ayuda;
     private javax.swing.JButton bandas;
     private javax.swing.JLabel barraEstado;
+    private javax.swing.JButton camaraWeb;
     private javax.swing.JComboBox<String> cambioEspacio;
+    private javax.swing.JButton capturar;
     private sm.gms.colores.VentanaPrincipal colorBorde;
     private sm.gms.colores.VentanaPrincipal colorFondo;
     private javax.swing.JButton combinar;
@@ -2151,11 +2451,13 @@ private boolean comprobarExtensionVideo(String extension){
     private javax.swing.JButton elipse;
     private javax.swing.JDesktopPane escritorio;
     private javax.swing.JToggleButton filtroRojo;
-    private javax.swing.JButton funcionCuadratica;
+    private javax.swing.JButton finVideo;
+    private javax.swing.JToggleButton funcionCuadratica;
     private javax.swing.JToggleButton funcionTrapezoidal;
     private javax.swing.JToggleButton grabar;
     private javax.swing.JButton guardar;
     private javax.swing.JButton iluminar;
+    private javax.swing.JButton inicioVideo;
     private javax.swing.JButton inicioYPausa;
     private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JPanel jPanel1;
@@ -2164,11 +2466,13 @@ private boolean comprobarExtensionVideo(String extension){
     private javax.swing.JSeparator jSeparator3;
     private javax.swing.JSeparator jSeparator4;
     private javax.swing.JSeparator jSeparator5;
+    private javax.swing.JSeparator jSeparator6;
     private javax.swing.JButton linea;
     private javax.swing.JComboBox<File> listaAudios;
-    private javax.swing.JComboBox<Shape> listaFiguras;
+    private javax.swing.JComboBox<Figura> listaFiguras;
     private javax.swing.JMenuBar menuOpciones;
     private javax.swing.JToggleButton mover;
+    private javax.swing.JButton negativo;
     private javax.swing.JButton nuevo;
     private javax.swing.JButton oscurecer;
     private javax.swing.JPanel panelBarraEstado;
@@ -2180,10 +2484,12 @@ private boolean comprobarExtensionVideo(String extension){
     private javax.swing.JPanel panelProcesamientoFiltros2;
     private javax.swing.JPanel panelProcesamientoFiltros3;
     private javax.swing.JPanel panelProcesamientoFiltros4;
+    private javax.swing.JPanel panelProcesamientoFiltros5;
+    private javax.swing.JPanel panelProcesamientoFiltros6;
     private javax.swing.JPanel panelProcesamientoRotacionYEscalado;
     private javax.swing.JPanel panelProcesamientoTransformaciones;
     private javax.swing.JButton parar;
-    private javax.swing.JButton pintarBordes;
+    private javax.swing.JToggleButton pintarBordes;
     private javax.swing.JButton rectangulo;
     private javax.swing.JToggleButton relleno;
     private javax.swing.JButton rotacion180;
@@ -2192,10 +2498,12 @@ private boolean comprobarExtensionVideo(String extension){
     private javax.swing.JButton selectorBorde;
     private javax.swing.JButton selectorFondo;
     private javax.swing.JButton sepia;
+    private javax.swing.JSlider sliderBordes;
     private javax.swing.JSlider sliderBrillo;
     private javax.swing.JSlider sliderContraste;
     private javax.swing.JSlider sliderFiltro;
     private javax.swing.JSlider sliderFiltroRojo;
+    private javax.swing.JSlider sliderFuncionCuadratica;
     private javax.swing.JSlider sliderPosterizado;
     private javax.swing.JSlider sliderRotacion;
     private javax.swing.JSlider sliderTintado;

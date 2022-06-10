@@ -4,6 +4,8 @@
  */
 package practica13;
 
+import uk.co.caprica.vlcj.discovery.NativeDiscovery;
+
 /**
  *
  * @author Gloria
@@ -42,6 +44,8 @@ public class Practica13 {
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 new VentanaPrincipal().setVisible(true);
+                boolean ok = new NativeDiscovery().discover();
+                System.out.println(ok);
             }
         });
     }
