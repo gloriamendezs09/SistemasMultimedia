@@ -48,6 +48,8 @@ public class Figura {
     Shape figura;
     //
     Rectangle2D bordeFigura;
+    //
+    String nombre;
 
     /**
      * Método que devuelve la variable c de la clase
@@ -224,6 +226,10 @@ public class Figura {
     public void setBordeFigura(Rectangle2D bordeFigura){
         this.bordeFigura = bordeFigura;
     }
+    
+    public void setNombre(String nombre){
+        this.nombre = nombre;
+    }
 
     public Figura (Color fondo, Color borde, int grosor, Stroke trazo, float patronDisc[], boolean relleno, boolean transparencia, boolean alisar){
         this.fondo = fondo;
@@ -291,6 +297,11 @@ public class Figura {
         Rectangle2D bordes = new Rectangle2D.Float((float)this.figura.getBounds2D().getX() - 2.0f, (float)this.figura.getBounds2D().getY() - 2.0f,
                                             (float)this.figura.getBounds2D().getWidth() + 4.0f, (float)this.figura.getBounds2D().getHeight() + 4.0f);
         this.setBordeFigura(bordes);
+    }
+    
+    @Override
+    public String toString(){
+        return nombre;
     }
 
 }

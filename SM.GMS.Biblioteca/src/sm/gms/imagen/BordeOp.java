@@ -16,9 +16,9 @@ public class BordeOp extends BufferedImageOpAdapter{
    private int umbral;
    private Color color;
 
-    public BordeOp (int umbral) {
+    public BordeOp (int umbral, Color color) {
         this.umbral = umbral;
-        this.color = Color.red;
+        this.color = color;
     }
 
     @Override

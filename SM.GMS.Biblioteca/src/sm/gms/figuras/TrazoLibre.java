@@ -32,6 +32,7 @@ public class TrazoLibre extends Figura{
         trazoLibre = new GeneralPath();        
         trazoLibre.moveTo(p.getX(), p.getY());
         super.setFigura(trazoLibre);
+        super.setNombre("Trazo Libre");
     }
 
     public TrazoLibre (Point2D p, Color fondo, Color borde, int grosor, Stroke trazo, float patronDisc[], boolean relleno, boolean transparencia, boolean alisar){
@@ -39,6 +40,7 @@ public class TrazoLibre extends Figura{
         trazoLibre = new GeneralPath();        
         trazoLibre.moveTo(p.getX(), p.getY());
         super.setFigura(trazoLibre);
+        super.setNombre("Trazo Libre");
     }
 
     /**

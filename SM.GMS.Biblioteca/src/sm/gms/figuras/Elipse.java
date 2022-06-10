@@ -29,12 +29,14 @@ public class Elipse extends Figura{
         super();
         elipse = new Ellipse2D.Float((float)p.getX(), (float)p.getY(), 0.0f, 0.0f);
         super.setFigura(elipse);
+        super.setNombre("Elipse");
     }
 
     public Elipse(Point2D p, Color fondo, Color borde, int grosor, Stroke trazo, float patronDisc[], boolean relleno, boolean transparencia, boolean alisar){
         super(fondo, borde, grosor, trazo, patronDisc, relleno, transparencia, alisar);
         elipse = new Ellipse2D.Float((float)p.getX(), (float)p.getY(), 0.0f, 0.0f);
         super.setFigura(elipse);
+        super.setNombre("Elipse");
     }
 
     @Override

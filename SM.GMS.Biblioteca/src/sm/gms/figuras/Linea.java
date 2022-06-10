@@ -30,12 +30,14 @@ public class Linea extends Figura{
         super();
         linea = new Line2D.Float(p1, p2);
         super.setFigura(linea);
+        super.setNombre("Linea");
     }
 
     public Linea(Point2D p1, Point2D p2, Color fondo, Color borde, int grosor, Stroke trazo, float patronDisc[], boolean relleno, boolean transparencia, boolean alisar){
         super(fondo, borde, grosor, trazo, patronDisc, relleno, transparencia, alisar);
         linea = new Line2D.Float(p1, p2);
         super.setFigura(linea);
+        super.setNombre("Linea");
     }
 
     /**
@@ -50,18 +52,7 @@ public class Linea extends Figura{
         return this.linea.ptLineDist(p) <= 4.0;
     }
 
-    /**
-     * Devuelve la variable linea de la clase movida hacia un punto p
-     *
-     * @param p punto al que hay que mover la variable linea
-     */
-    public void setLocationLine(Point2D p) {
-        double dx = p.getX() - this.linea.getX1();
-        double dy = p.getY() - this.linea.getY1();
-        Point2D newp2 = new Point2D.Double(this.linea.getX2() + dx, this.linea.getY2() + dy);
-        this.linea.setLine(p, newp2);
-    }
-
+    @Override
     public void pintar(Graphics2D g2d){
         g2d.setStroke(super.getTrazo());
         if (super.isTransparencia()) {
@@ -74,6 +65,7 @@ public class Linea extends Figura{
         g2d.draw(this.linea);
     }
 
+    @Override
     public boolean seleccionada(Point2D p){
         if (containsLine(p))
             return true;
@@ -88,7 +80,10 @@ public class Linea extends Figura{
 
     @Override
     public void moverFigura (Point2D p){
-        setLocationLine(p);
+        double dx = p.getX() - this.linea.getX1();
+        double dy = p.getY() - this.linea.getY1();
+        Point2D newp2 = new Point2D.Double(this.linea.getX2() + dx, this.linea.getY2() + dy);
+        this.linea.setLine(p, newp2);
     }
 
 }

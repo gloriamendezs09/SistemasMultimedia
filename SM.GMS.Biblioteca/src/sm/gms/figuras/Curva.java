@@ -32,6 +32,7 @@ public class Curva extends Figura{
                                 (float) p.getX(), (float) p.getY(),
                                 (float) p.getX(), (float) p.getY());
         super.setFigura(curva);
+        super.setNombre("Curva");
     }
 
     public Curva (Point2D p, Color fondo, Color borde, int grosor, Stroke trazo, float patronDisc[], boolean relleno, boolean transparencia, boolean alisar){
@@ -40,6 +41,7 @@ public class Curva extends Figura{
                                 (float) p.getX(), (float) p.getY(),
                                 (float) p.getX(), (float) p.getY());
         super.setFigura(curva);
+        super.setNombre("Curva");
     }
 
     @Override

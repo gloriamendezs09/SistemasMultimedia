@@ -30,12 +30,14 @@ public class Rectangulo extends Figura{
         super();
         rectangulo = new Rectangle2D.Float((float)p.getX(), (float)p.getY(), 0.0f, 0.0f);
         super.setFigura(rectangulo);
+        super.setNombre("Rectangulo");
     }
 
     public Rectangulo(Point2D p, Color fondo, Color borde, int grosor, Stroke trazo, float patronDisc[], boolean relleno, boolean transparencia, boolean alisar){
         super(fondo, borde, grosor, trazo, patronDisc, relleno, transparencia, alisar);
         rectangulo = new Rectangle2D.Float((float)p.getX(), (float)p.getY(), 0.0f, 0.0f);
         super.setFigura(rectangulo);
+        super.setNombre("Rectangulo");
     }
 
     @Override

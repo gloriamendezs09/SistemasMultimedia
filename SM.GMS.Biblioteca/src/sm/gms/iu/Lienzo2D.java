@@ -582,7 +582,7 @@ public class Lienzo2D extends javax.swing.JPanel {
         if (volcado && (pulsacion == 1 && this.figura == Figuras.CURVA))
             this.volcarImagen();
         if (!volcado){
-            LienzoEvent evtLienzo = new LienzoEvent(this, this.vShape.get(vShape.size() - 1).getFigura(), null);
+            LienzoEvent evtLienzo = new LienzoEvent(this, this.vShape.get(vShape.size() - 1), null);
             notifyShapeAddedEvent(evtLienzo);
         }
     }//GEN-LAST:event_formMouseReleased
